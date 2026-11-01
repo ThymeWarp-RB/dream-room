@@ -91,6 +91,14 @@ select{
   border-radius:999px;padding:5px 12px;font-size:12px;font-weight:700;
 }
 
+.hint-text{
+  min-height:22px; margin-top:10px; text-align:center;
+  font-size:13px; color:var(--lake-deep); letter-spacing:.6px;
+  opacity:0; transform:translateY(-2px);
+  transition:opacity .16s ease, transform .16s ease;
+}
+.hint-text.on{opacity:1; transform:translateY(0)}
+
 #fillSent .blank{color:var(--lake-deep);font-weight:700;letter-spacing:2px}
 
 /* ---------- 单元选择 ---------- */
@@ -448,9 +456,11 @@ footer{
         <input class="quiz-input" id="qInput" autocomplete="off" autocapitalize="off"
                spellcheck="false" placeholder="在这里输入英文…">
         <div class="quiz-feedback" id="qFb"></div>
+        <div class="hint-text" id="qHintText"></div>
         <div class="quiz-btns">
           <button class="btn" id="qSubmit">提交</button>
           <button class="btn ghost" id="qSkip">跳过</button>
+          <button class="btn ghost" id="qHint">提示</button>
         </div>
       </div>
 
@@ -474,9 +484,11 @@ footer{
       <input class="quiz-input" id="fillInput" autocomplete="off" autocapitalize="off"
              spellcheck="false" placeholder="填出缺失的单词…">
       <div class="quiz-feedback" id="fillFb"></div>
+      <div class="hint-text" id="fillHintText"></div>
       <div class="quiz-btns">
         <button class="btn" id="fillSubmit">提交</button>
         <button class="btn ghost" id="fillSkip">跳过</button>
+        <button class="btn ghost" id="fillHint">提示</button>
       </div>
 
       <div class="quiz-stats">
@@ -957,6 +969,7 @@ function renderQuestion(){
   document.getElementById('qSkip').disabled = false;
   document.getElementById('qProg').textContent = dState.i + 1;
   dState.answered = false;
+  resetHint('qHint', 'qHintText');
   inp.focus();
 }
 
@@ -1013,6 +1026,33 @@ function nextQuestion(keepFb){
   if(!keepFb) { fb.textContent = ''; fb.className = 'quiz-feedback'; fb.style.color = ''; }
   renderQuestion();
   if(keepFb){ /* 跳过后保留反馈由 renderQuestion 清空，这里单独显示 */ }
+}
+
+/* ================== 提示开关 ================== */
+function showHint(btnId, boxId, answer){
+  const btn = document.getElementById(btnId);
+  const box = document.getElementById(boxId);
+  if(btn.dataset.on === '1'){
+    box.textContent = '';
+    box.classList.remove('on');
+    btn.textContent = '提示';
+    btn.dataset.on = '0';
+  } else {
+    box.textContent = '答案：' + answer;
+    box.classList.add('on');
+    btn.textContent = '收起提示';
+    btn.dataset.on = '1';
+  }
+}
+
+function resetHint(btnId, boxId){
+  const btn = document.getElementById(btnId);
+  const box = document.getElementById(boxId);
+  if(!btn || !box) return;
+  btn.dataset.on = '0';
+  btn.textContent = '提示';
+  box.textContent = '';
+  box.classList.remove('on');
 }
 
 /* ================== ⑤ 完成句子 ================== */
@@ -1078,6 +1118,7 @@ function renderFill(){
   document.getElementById('fillSubmit').textContent = '提交';
   document.getElementById('fillProg').textContent = fState.i + 1;
   fState.answered = false;
+  resetHint('fillHint', 'fillHintText');
   inp.focus();
 }
 
@@ -1177,6 +1218,18 @@ document.getElementById('qInput').addEventListener('keydown', e => {
   if(e.key === 'Enter'){ e.preventDefault(); submitAnswer(); }
 });
 
+document.getElementById('qHint').addEventListener('click', () => {
+  const q = dState.queue[dState.i];
+  if(!q) return;
+  showHint('qHint', 'qHintText', q.w);
+});
+
+document.getElementById('fillHint').addEventListener('click', () => {
+  const it = fState.queue[fState.i];
+  if(!it) return;
+  showHint('fillHint', 'fillHintText', it.w.w);
+});
+
 document.getElementById('fillSubmit').addEventListener('click', submitFill);
 document.getElementById('fillSkip').addEventListener('click', () => {
   if(fState.answered){ nextFill(); return; }
@@ -1191,6 +1244,17 @@ document.getElementById('fillInput').addEventListener('keydown', e => {
   const m = /[?&]fx=(ok|bad)/.exec(location.search);
   if(!m) return;
   setTimeout(() => playFx(m[1] === 'ok' ? 'fxOk' : 'fxBad'), 60);
+})();
+
+/* 调试：?hint=1 自动点一次「提示」（用于截图核对） */
+(function(){
+  if(!/[?&]hint=1/.test(location.search)) return;
+  setTimeout(() => {
+    const t = /[?&]tab=(\w+)/.exec(location.search);
+    const id = t && t[1] === 'fill' ? 'fillHint' : 'qHint';
+    const el = document.getElementById(id);
+    if(el) el.click();
+  }, 120);
 })();
 
 /* 支持 ?tab=match|fun|norm|dict 直接打开某个面板（方便截图与调试） */
